@@ -21,7 +21,6 @@ from pyhealth.tasks.sleep_wake_task import (
     SleepWakeTask,
 )
 
-
 # -----------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------
@@ -50,10 +49,7 @@ def _make_csv(
     rows = n_epochs * EPOCH_LEN
     data = {
         "TIMESTAMP": np.arange(rows) / 64.0,
-        "BVP": (
-            np.zeros(rows) if flat_bvp
-            else rng.randn(rows) * 50
-        ),
+        "BVP": (np.zeros(rows) if flat_bvp else rng.randn(rows) * 50),
         "IBI": np.clip(rng.rand(rows) * 0.2 + 0.7, 0, 2),
         "EDA": rng.rand(rows) * 5 + 0.1,
         "TEMP": rng.rand(rows) * 4 + 33,
@@ -109,8 +105,16 @@ class TestSleepWakeTask:
     def test_sample_count(self, tmp_path):
         """Correct number of non-Missing epochs returned."""
         stages = [
-            "W", "N1", "N2", "N3", "R",
-            "W", "Missing", "N2", "W", "R",
+            "W",
+            "N1",
+            "N2",
+            "N3",
+            "R",
+            "W",
+            "Missing",
+            "N2",
+            "W",
+            "R",
         ]
         csv = _make_csv(10, stages, str(tmp_path))
         patient = _make_patient(csv)
@@ -144,7 +148,8 @@ class TestSleepWakeTask:
         csv = _make_csv(2, stages, str(tmp_path))
         patient = _make_patient(csv)
         task = SleepWakeTask(
-            signal_subset="ACC", artifact_threshold=None,
+            signal_subset="ACC",
+            artifact_threshold=None,
         )
         samples = task(patient)
         assert len(samples) == 2
@@ -157,17 +162,16 @@ class TestSleepWakeTask:
         patient = _make_patient(csv)
 
         task_acc = SleepWakeTask(
-            signal_subset="ACC", artifact_threshold=None,
+            signal_subset="ACC",
+            artifact_threshold=None,
         )
         task_all = SleepWakeTask(
-            signal_subset="ALL", artifact_threshold=None,
+            signal_subset="ALL",
+            artifact_threshold=None,
         )
         samples_acc = task_acc(patient)
         samples_all = task_all(patient)
-        assert (
-            samples_all[0]["signal"].shape[0]
-            > samples_acc[0]["signal"].shape[0]
-        )
+        assert samples_all[0]["signal"].shape[0] > samples_acc[0]["signal"].shape[0]
 
     def test_epoch_ordering(self, tmp_path):
         """epoch_idx is monotonically increasing."""
@@ -190,7 +194,10 @@ class TestSleepWakeTask:
         """Flat BVP (artifact) handled without crash."""
         stages = ["W"]
         csv = _make_csv(
-            1, stages, str(tmp_path), flat_bvp=True,
+            1,
+            stages,
+            str(tmp_path),
+            flat_bvp=True,
         )
         patient = _make_patient(csv)
         task = SleepWakeTask(artifact_threshold=None)
@@ -204,9 +211,83 @@ class TestSleepWakeTask:
         patient = _make_patient(csv)
         task_none = SleepWakeTask(artifact_threshold=None)
         task_zero = SleepWakeTask(artifact_threshold=0.0)
-        assert len(task_none(patient)) >= len(
-            task_zero(patient)
+        assert len(task_none(patient)) >= len(task_zero(patient))
+
+    def test_invalid_signal_subset(self):
+        """Invalid signal_subset raises ValueError."""
+        with pytest.raises(ValueError, match="signal_subset"):
+            SleepWakeTask(signal_subset="INVALID")
+
+    def test_signal_subset_bvp_hrv(self, tmp_path):
+        """BVP_HRV subset produces 12-dim feature vector."""
+        stages = ["W", "N2"]
+        csv = _make_csv(2, stages, str(tmp_path))
+        patient = _make_patient(csv)
+        task = SleepWakeTask(
+            signal_subset="BVP_HRV",
+            artifact_threshold=None,
         )
+        samples = task(patient)
+        assert len(samples) == 2
+        assert samples[0]["signal"].shape[0] == 12
+
+    def test_signal_subset_eda_temp(self, tmp_path):
+        """EDA_TEMP subset produces 11-dim feature vector."""
+        stages = ["W", "N2"]
+        csv = _make_csv(2, stages, str(tmp_path))
+        patient = _make_patient(csv)
+        task = SleepWakeTask(
+            signal_subset="EDA_TEMP",
+            artifact_threshold=None,
+        )
+        samples = task(patient)
+        assert len(samples) == 2
+        # EDA (7) + TEMP (4) = 11
+        assert samples[0]["signal"].shape[0] == 11
+
+    def test_patient_id_in_samples(self, tmp_path):
+        """Output samples carry the correct patient_id."""
+        csv = _make_csv(
+            3,
+            ["W", "N2", "R"],
+            str(tmp_path),
+            patient_id="S042",
+        )
+        patient = _make_patient(csv, patient_id="S042")
+        task = SleepWakeTask(artifact_threshold=None)
+        samples = task(patient)
+        assert all(s["patient_id"] == "S042" for s in samples)
+
+    def test_multi_patient_no_leakage(self, tmp_path):
+        """Each patient's samples reference only its own id."""
+        csv_a = _make_csv(
+            3,
+            ["W", "N1", "N2"],
+            str(tmp_path),
+            patient_id="P_A",
+        )
+        csv_b = _make_csv(
+            2,
+            ["N3", "R"],
+            str(tmp_path),
+            patient_id="P_B",
+        )
+        patient_a = _make_patient(csv_a, patient_id="P_A")
+        patient_b = _make_patient(csv_b, patient_id="P_B")
+
+        task = SleepWakeTask(artifact_threshold=None)
+        samples_a = task(patient_a)
+        samples_b = task(patient_b)
+
+        ids_a = set(s["patient_id"] for s in samples_a)
+        ids_b = set(s["patient_id"] for s in samples_b)
+        assert ids_a == {"P_A"}
+        assert ids_b == {"P_B"}
+        assert ids_a.isdisjoint(ids_b)
+
+        # epoch_idx restarts at 0 for each patient
+        assert samples_a[0]["epoch_idx"] == 0
+        assert samples_b[0]["epoch_idx"] == 0
 
 
 # -----------------------------------------------------------

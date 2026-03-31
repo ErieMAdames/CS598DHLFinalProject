@@ -31,16 +31,30 @@ SIGNAL_GROUPS: Dict[str, List[str]] = {
     "BVP_HRV": ["BVP", "IBI", "HR"],
     "EDA_TEMP": ["EDA", "TEMP"],
     "ALL": [
-        "BVP", "IBI", "EDA", "TEMP",
-        "ACC_X", "ACC_Y", "ACC_Z", "HR",
+        "BVP",
+        "IBI",
+        "EDA",
+        "TEMP",
+        "ACC_X",
+        "ACC_Y",
+        "ACC_Z",
+        "HR",
     ],
 }
 
 BINARY_LABEL_MAP: Dict[str, int] = {
-    "W": 1, "N1": 0, "N2": 0, "N3": 0, "R": 0,
+    "W": 1,
+    "N1": 0,
+    "N2": 0,
+    "N3": 0,
+    "R": 0,
 }
 STAGE_LABEL_MAP: Dict[str, int] = {
-    "W": 0, "R": 1, "N1": 2, "N2": 3, "N3": 4,
+    "W": 0,
+    "R": 1,
+    "N1": 2,
+    "N2": 3,
+    "N3": 4,
 }
 
 
@@ -91,7 +105,9 @@ def _acc_features(epoch_df: pd.DataFrame) -> np.ndarray:
     for axis in ["ACC_X", "ACC_Y", "ACC_Z"]:
         raw = epoch_df[axis].values.astype(np.float64)
         b, a = butter(
-            5, [3.0 / nyq, 11.0 / nyq], btype="band",
+            5,
+            [3.0 / nyq, 11.0 / nyq],
+            btype="band",
         )
         try:
             filt = filtfilt(b, a, raw)
@@ -115,9 +131,7 @@ def _acc_features(epoch_df: pd.DataFrame) -> np.ndarray:
     acc_y = epoch_df["ACC_Y"].values.astype(np.float64)
     acc_z = epoch_df["ACC_Z"].values.astype(np.float64)
     magnitude = np.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
-    acc_index = float(
-        np.mean(np.abs(magnitude - np.mean(magnitude)))
-    )
+    acc_index = float(np.mean(np.abs(magnitude - np.mean(magnitude))))
     feats.append(acc_index)
 
     return np.array(feats, dtype=np.float64)
@@ -165,7 +179,8 @@ def _bvp_hrv_features(epoch_df: pd.DataFrame) -> np.ndarray:
     nyq = 0.5 * FS
     try:
         sos = cheby2(
-            4, 40,
+            4,
+            40,
             [0.5 / nyq, 20.0 / nyq],
             btype="band",
             output="sos",
@@ -188,15 +203,9 @@ def _bvp_hrv_features(epoch_df: pd.DataFrame) -> np.ndarray:
     if len(valid_ibi) >= 3:
         nn_ms = valid_ibi * 1000.0
         diffs = np.diff(nn_ms)
-        rmssd = (
-            np.sqrt(np.mean(diffs**2))
-            if len(diffs) > 0 else 0.0
-        )
+        rmssd = np.sqrt(np.mean(diffs**2)) if len(diffs) > 0 else 0.0
         sdnn = float(np.std(nn_ms))
-        pnn50 = (
-            float(np.mean(np.abs(diffs) > 50) * 100)
-            if len(diffs) > 0 else 0.0
-        )
+        pnn50 = float(np.mean(np.abs(diffs) > 50) * 100) if len(diffs) > 0 else 0.0
         min_nn = float(np.min(nn_ms))
         mean_nn = float(np.mean(nn_ms))
 
@@ -204,18 +213,20 @@ def _bvp_hrv_features(epoch_df: pd.DataFrame) -> np.ndarray:
         hfd_val = 0.0
         if n > 1:
             total_len = np.sum(np.abs(np.diff(valid_ibi)))
-            diameter = np.max(
-                np.abs(valid_ibi - valid_ibi[0])
-            )
+            diameter = np.max(np.abs(valid_ibi - valid_ibi[0]))
             if total_len > 0 and diameter > 0:
                 avg_step = total_len / (n - 1)
                 hfd_val = np.log10(n - 1) / (
-                    np.log10((n - 1) / avg_step)
-                    + np.log10(diameter / total_len)
+                    np.log10((n - 1) / avg_step) + np.log10(diameter / total_len)
                 )
 
         for v in [
-            rmssd, sdnn, pnn50, min_nn, mean_nn, hfd_val,
+            rmssd,
+            sdnn,
+            pnn50,
+            min_nn,
+            mean_nn,
+            hfd_val,
         ]:
             val = float(v) if np.isfinite(v) else 0.0
             base_feats.append(val)
@@ -250,14 +261,18 @@ def _eda_features(epoch_df: pd.DataFrame) -> np.ndarray:
     if len(eda) >= 16 and np.std(eda) > 1e-8:
         kernel = min(len(eda) // 4, 16)
         tonic = np.convolve(
-            eda, np.ones(kernel) / kernel, mode="same",
+            eda,
+            np.ones(kernel) / kernel,
+            mode="same",
         )
         scr = eda - tonic
-        base_feats.extend([
-            float(np.mean(scr)),
-            float(np.max(scr)),
-            float(np.std(scr)),
-        ])
+        base_feats.extend(
+            [
+                float(np.mean(scr)),
+                float(np.max(scr)),
+                float(np.std(scr)),
+            ]
+        )
     else:
         base_feats.extend([0.0, 0.0, 0.0])
 
@@ -281,9 +296,7 @@ def _extract_features(
     parts: List[np.ndarray] = []
 
     groups = (
-        ["ACC", "BVP_HRV", "EDA_TEMP"]
-        if signal_subset == "ALL"
-        else [signal_subset]
+        ["ACC", "BVP_HRV", "EDA_TEMP"] if signal_subset == "ALL" else [signal_subset]
     )
 
     for group in groups:
@@ -297,7 +310,10 @@ def _extract_features(
 
     feat_vec = np.concatenate(parts)
     feat_vec = np.nan_to_num(
-        feat_vec, nan=0.0, posinf=0.0, neginf=0.0,
+        feat_vec,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
     )
     return feat_vec
 
@@ -319,9 +335,7 @@ def _compute_acc_index(epoch_df: pd.DataFrame) -> float:
     acc_y = epoch_df["ACC_Y"].values.astype(np.float64)
     acc_z = epoch_df["ACC_Z"].values.astype(np.float64)
     magnitude = np.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
-    return float(
-        np.mean(np.abs(magnitude - np.mean(magnitude)))
-    )
+    return float(np.mean(np.abs(magnitude - np.mean(magnitude))))
 
 
 # ---------------------------------------------------------------
@@ -390,7 +404,8 @@ class SleepWakeTask(BaseTask):
         super().__init__()
 
     def __call__(
-        self, patient: Any,
+        self,
+        patient: Any,
     ) -> List[Dict[str, Any]]:
         """Process one DREAMT patient into epoch samples.
 
@@ -436,8 +451,7 @@ class SleepWakeTask(BaseTask):
         event = events[0]
         file_path = getattr(event, "file_64hz", None)
         if file_path is None or (
-            isinstance(file_path, str)
-            and file_path.lower() == "none"
+            isinstance(file_path, str) and file_path.lower() == "none"
         ):
             return []
 
@@ -445,7 +459,9 @@ class SleepWakeTask(BaseTask):
             df = pd.read_csv(str(file_path))
         except Exception as exc:
             logger.warning(
-                "Could not read %s: %s", file_path, exc,
+                "Could not read %s: %s",
+                file_path,
+                exc,
             )
             return []
 
@@ -454,32 +470,25 @@ class SleepWakeTask(BaseTask):
             for cols in SIGNAL_GROUPS.values():
                 required_cols.update(cols)
         else:
-            required_cols.update(
-                SIGNAL_GROUPS[self.signal_subset]
-            )
+            required_cols.update(SIGNAL_GROUPS[self.signal_subset])
 
         col_map: Dict[str, str] = {}
         for col in df.columns:
             col_map[col.lower()] = col
 
-        missing = [
-            c for c in required_cols
-            if c.lower() not in col_map
-        ]
+        missing = [c for c in required_cols if c.lower() not in col_map]
         if missing:
             logger.warning(
                 "Patient %s missing columns: %s",
-                pid, missing,
+                pid,
+                missing,
             )
             return []
 
         n_samples = len(df)
         n_epochs = n_samples // EPOCH_LEN
 
-        has_acc = all(
-            c.lower() in col_map
-            for c in ["ACC_X", "ACC_Y", "ACC_Z"]
-        )
+        has_acc = all(c.lower() in col_map for c in ["ACC_X", "ACC_Y", "ACC_Z"])
 
         samples: List[Dict[str, Any]] = []
         epoch_counter = 0
@@ -490,7 +499,8 @@ class SleepWakeTask(BaseTask):
             epoch_df = df.iloc[start:end]
 
             stage_col = col_map.get(
-                "sleep_stage", "Sleep_Stage",
+                "sleep_stage",
+                "Sleep_Stage",
             )
             stage_vals = epoch_df[stage_col].dropna().unique()
             if len(stage_vals) == 0:
@@ -500,16 +510,14 @@ class SleepWakeTask(BaseTask):
             if stage == "Missing" or stage not in label_map:
                 continue
 
-            if (
-                self.artifact_threshold is not None
-                and has_acc
-            ):
+            if self.artifact_threshold is not None and has_acc:
                 acc_idx = _compute_acc_index(epoch_df)
                 if acc_idx > self.artifact_threshold:
                     logger.debug(
-                        "Epoch %d patient %s dropped "
-                        "(ACC_INDEX=%.4f > %.4f)",
-                        i, pid, acc_idx,
+                        "Epoch %d patient %s dropped " "(ACC_INDEX=%.4f > %.4f)",
+                        i,
+                        pid,
+                        acc_idx,
                         self.artifact_threshold,
                     )
                     continue
@@ -518,22 +526,26 @@ class SleepWakeTask(BaseTask):
 
             try:
                 feat = _extract_features(
-                    epoch_df, self.signal_subset,
+                    epoch_df,
+                    self.signal_subset,
                 )
             except Exception as exc:
                 logger.debug(
-                    "Feature extraction failed epoch %d "
-                    "patient %s: %s",
-                    i, pid, exc,
+                    "Feature extraction failed epoch %d " "patient %s: %s",
+                    i,
+                    pid,
+                    exc,
                 )
                 continue
 
-            samples.append({
-                "patient_id": pid,
-                "epoch_idx": epoch_counter,
-                "signal": feat,
-                "label": label,
-            })
+            samples.append(
+                {
+                    "patient_id": pid,
+                    "epoch_idx": epoch_counter,
+                    "signal": feat,
+                    "label": label,
+                }
+            )
             epoch_counter += 1
 
         return samples
@@ -570,7 +582,8 @@ class SleepStageTask(SleepWakeTask):
     output_schema: Dict[str, str] = {"label": "multiclass"}
 
     def __call__(
-        self, patient: Any,
+        self,
+        patient: Any,
     ) -> List[Dict[str, Any]]:
         """Process one DREAMT patient into 5-class samples.
 
@@ -585,5 +598,6 @@ class SleepStageTask(SleepWakeTask):
             to {W, R, N1, N2, N3}.
         """
         return self._process_patient(
-            patient, STAGE_LABEL_MAP,
+            patient,
+            STAGE_LABEL_MAP,
         )

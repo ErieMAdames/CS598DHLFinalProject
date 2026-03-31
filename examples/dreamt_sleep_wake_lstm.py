@@ -34,6 +34,8 @@ is near-random performance (F1 ≈ 0.2-0.5, Kappa ≈ 0).
 
 **Full DREAMT run** (representative, 5-fold CV, 30 epochs):
 
+===========================================NOT REAL DATA, JUST A PLACEHOLDER===========================================
+
 Ablation 1 — Signal subsets (binary wake/sleep):
 
 ==========  =========  =========  =========  =========
@@ -53,6 +55,8 @@ Granularity  F1 (avg)  AUROC      Accuracy   Kappa
 Binary       0.52±0.04 0.64±0.03  0.72±0.03  0.18±0.04
 5-class      0.28±0.05 0.61±0.04  0.42±0.04  0.14±0.05
 ===========  ========  =========  =========  =========
+
+===========================================NOT REAL DATA, JUST A PLACEHOLDER===========================================
 
 Key observations:
 
@@ -113,13 +117,16 @@ class SleepLSTM(nn.Module):
     ) -> None:
         super().__init__()
         self.lstm = nn.LSTM(
-            input_dim, hidden_dim,
-            num_layers=1, batch_first=True,
+            input_dim,
+            hidden_dim,
+            num_layers=1,
+            batch_first=True,
         )
         self.fc = nn.Linear(hidden_dim, num_classes)
 
     def forward(
-        self, x: torch.Tensor,
+        self,
+        x: torch.Tensor,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -142,7 +149,8 @@ class SequenceDataset(Dataset):
     """Groups epoch samples by patient into sequences."""
 
     def __init__(
-        self, samples: List[Dict[str, Any]],
+        self,
+        samples: List[Dict[str, Any]],
     ) -> None:
         patient_map: Dict[str, list] = defaultdict(list)
         for s in samples:
@@ -156,23 +164,21 @@ class SequenceDataset(Dataset):
                 key=lambda e: e["epoch_idx"],
             )
             signals = np.stack(
-                [e["signal"] for e in epochs], axis=0,
+                [e["signal"] for e in epochs],
+                axis=0,
             )
             labels = np.array(
                 [e["label"] for e in epochs],
             )
-            self.sequences.append(
-                torch.tensor(signals, dtype=torch.float32)
-            )
-            self.labels_list.append(
-                torch.tensor(labels, dtype=torch.long)
-            )
+            self.sequences.append(torch.tensor(signals, dtype=torch.float32))
+            self.labels_list.append(torch.tensor(labels, dtype=torch.long))
 
     def __len__(self) -> int:
         return len(self.sequences)
 
     def __getitem__(
-        self, idx: int,
+        self,
+        idx: int,
     ) -> tuple:
         return self.sequences[idx], self.labels_list[idx]
 
@@ -185,13 +191,19 @@ def collate_fn(
     max_len = max(s.shape[0] for s in seqs)
     feat_dim = seqs[0].shape[1]
     padded_seqs = torch.zeros(
-        len(seqs), max_len, feat_dim,
+        len(seqs),
+        max_len,
+        feat_dim,
     )
     padded_labels = torch.full(
-        (len(seqs), max_len), -1, dtype=torch.long,
+        (len(seqs), max_len),
+        -1,
+        dtype=torch.long,
     )
     masks = torch.zeros(
-        len(seqs), max_len, dtype=torch.bool,
+        len(seqs),
+        max_len,
+        dtype=torch.bool,
     )
     for i, (s, lbl) in enumerate(zip(seqs, labels)):
         length = s.shape[0]
@@ -225,16 +237,22 @@ def train_and_evaluate(
     test_ds = SequenceDataset(test_samples)
 
     train_loader = DataLoader(
-        train_ds, batch_size=8,
-        shuffle=True, collate_fn=collate_fn,
+        train_ds,
+        batch_size=8,
+        shuffle=True,
+        collate_fn=collate_fn,
     )
     test_loader = DataLoader(
-        test_ds, batch_size=8,
-        shuffle=False, collate_fn=collate_fn,
+        test_ds,
+        batch_size=8,
+        shuffle=False,
+        collate_fn=collate_fn,
     )
 
     model = SleepLSTM(
-        feat_dim, hidden_dim, num_classes,
+        feat_dim,
+        hidden_dim,
+        num_classes,
     ).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss(ignore_index=-1)
@@ -265,22 +283,12 @@ def train_and_evaluate(
             preds = logits.argmax(dim=-1).cpu()
             for i in range(seqs.shape[0]):
                 valid = masks[i]
-                all_preds.extend(
-                    preds[i][valid].numpy().tolist()
-                )
-                all_labels.extend(
-                    labels[i][valid].numpy().tolist()
-                )
+                all_preds.extend(preds[i][valid].numpy().tolist())
+                all_labels.extend(labels[i][valid].numpy().tolist())
                 if num_classes == 2:
-                    all_probs.extend(
-                        probs[i][valid][:, 1]
-                        .numpy().tolist()
-                    )
+                    all_probs.extend(probs[i][valid][:, 1].numpy().tolist())
                 else:
-                    all_probs.extend(
-                        probs[i][valid]
-                        .numpy().tolist()
-                    )
+                    all_probs.extend(probs[i][valid].numpy().tolist())
 
     y_true = np.array(all_labels)
     y_pred = np.array(all_preds)
@@ -288,7 +296,10 @@ def train_and_evaluate(
 
     results: Dict[str, float] = {
         "f1": f1_score(
-            y_true, y_pred, average=avg, zero_division=0,
+            y_true,
+            y_pred,
+            average=avg,
+            zero_division=0,
         ),
         "accuracy": accuracy_score(y_true, y_pred),
         "kappa": cohen_kappa_score(y_true, y_pred),
@@ -297,12 +308,15 @@ def train_and_evaluate(
     try:
         if num_classes == 2:
             results["auroc"] = roc_auc_score(
-                y_true, np.array(all_probs),
+                y_true,
+                np.array(all_probs),
             )
         else:
             results["auroc"] = roc_auc_score(
-                y_true, np.array(all_probs),
-                multi_class="ovr", average="macro",
+                y_true,
+                np.array(all_probs),
+                multi_class="ovr",
+                average="macro",
             )
     except ValueError:
         results["auroc"] = float("nan")
@@ -317,9 +331,7 @@ def participant_cv(
     **kwargs: Any,
 ) -> Dict[str, str]:
     """5-fold participant-level cross-validation."""
-    patient_ids = sorted(
-        set(s["patient_id"] for s in samples)
-    )
+    patient_ids = sorted(set(s["patient_id"] for s in samples))
     np.random.seed(42)
     np.random.shuffle(patient_ids)
 
@@ -328,29 +340,21 @@ def participant_cv(
 
     for fold in range(n_folds):
         start = fold * fold_size
-        end = (
-            start + fold_size
-            if fold < n_folds - 1
-            else len(patient_ids)
-        )
+        end = start + fold_size if fold < n_folds - 1 else len(patient_ids)
         test_ids = set(patient_ids[start:end])
         train_ids = set(patient_ids) - test_ids
 
         if not train_ids or not test_ids:
             continue
 
-        train_s = [
-            s for s in samples
-            if s["patient_id"] in train_ids
-        ]
-        test_s = [
-            s for s in samples
-            if s["patient_id"] in test_ids
-        ]
+        train_s = [s for s in samples if s["patient_id"] in train_ids]
+        test_s = [s for s in samples if s["patient_id"] in test_ids]
 
         res = train_and_evaluate(
-            train_s, test_s,
-            num_classes=num_classes, **kwargs,
+            train_s,
+            test_s,
+            num_classes=num_classes,
+            **kwargs,
         )
         if res:
             fold_results.append(res)
@@ -368,9 +372,7 @@ def participant_cv(
     avg: Dict[str, str] = {}
     for key in fold_results[0]:
         vals = [r[key] for r in fold_results]
-        avg[key] = (
-            f"{np.mean(vals):.3f} +/- {np.std(vals):.3f}"
-        )
+        avg[key] = f"{np.mean(vals):.3f} +/- {np.std(vals):.3f}"
     return avg
 
 
@@ -413,7 +415,9 @@ def _generate_demo_samples(
                 "TIMESTAMP": np.arange(rows) / 64.0,
                 "BVP": rng.randn(rows) * 50,
                 "IBI": np.clip(
-                    rng.rand(rows) * 0.2 + 0.7, 0, 2,
+                    rng.rand(rows) * 0.2 + 0.7,
+                    0,
+                    2,
                 ),
                 "EDA": rng.rand(rows) * 5 + 0.1,
                 "TEMP": rng.rand(rows) * 4 + 33,
@@ -429,11 +433,13 @@ def _generate_demo_samples(
             data["Sleep_Stage"] = stage_col
 
             csv_path = os.path.join(
-                tmpdir, f"{pid}_whole_df.csv",
+                tmpdir,
+                f"{pid}_whole_df.csv",
             )
             pd.DataFrame(data).to_csv(csv_path, index=False)
 
             from types import SimpleNamespace
+
             evt = SimpleNamespace(file_64hz=csv_path)
             patient = SimpleNamespace(
                 patient_id=pid,
@@ -476,7 +482,8 @@ def _resolve_root(
         SystemExit: If no valid directory is found.
     """
     candidates = (
-        [root_arg] if root_arg
+        [root_arg]
+        if root_arg
         else [
             DEFAULT_ROOT,
             os.path.expanduser("~/data/dreamt"),
@@ -486,7 +493,8 @@ def _resolve_root(
     for path in candidates:
         if path and os.path.isdir(path):
             info = os.path.join(
-                path, "participant_info.csv",
+                path,
+                "participant_info.csv",
             )
             if os.path.isfile(info):
                 return path
@@ -494,7 +502,8 @@ def _resolve_root(
                 subpath = os.path.join(path, sub)
                 if os.path.isdir(subpath) and os.path.isfile(
                     os.path.join(
-                        subpath, "participant_info.csv",
+                        subpath,
+                        "participant_info.csv",
                     )
                 ):
                     return subpath
@@ -534,9 +543,7 @@ def _run_ablations_real(args: argparse.Namespace) -> None:
         print(f"\n--- Signal subset: {subset} ---")
         task = SleepWakeTask(signal_subset=subset)
         sample_ds = dataset.set_task(task)
-        samples = [
-            sample_ds[i] for i in range(len(sample_ds))
-        ]
+        samples = [sample_ds[i] for i in range(len(sample_ds))]
         print(f"  Total samples: {len(samples)}")
         avg = participant_cv(
             samples,
@@ -589,13 +596,11 @@ def _run_ablations_demo(args: argparse.Namespace) -> None:
         args: Parsed command-line arguments.
     """
     print("=== DEMO MODE (synthetic data) ===\n")
-    print(
-        "Generating 3 synthetic patients "
-        "(20 epochs each) ..."
-    )
+    print("Generating 3 synthetic patients " "(20 epochs each) ...")
 
     binary_samples, stage_samples = _generate_demo_samples(
-        n_patients=3, epochs_per_patient=20,
+        n_patients=3,
+        epochs_per_patient=20,
     )
     print(
         f"  Binary samples: {len(binary_samples)}, "
@@ -611,14 +616,13 @@ def _run_ablations_demo(args: argparse.Namespace) -> None:
     for subset in ["ACC", "BVP_HRV", "EDA_TEMP", "ALL"]:
         print(f"\n--- Signal subset: {subset} ---")
         sub_samples = _generate_demo_subset(
-            subset, n_patients=3,
+            subset,
+            n_patients=3,
         )
         print(f"  Total samples: {len(sub_samples)}")
         avg = participant_cv(
             sub_samples,
-            n_folds=min(3, len(set(
-                s["patient_id"] for s in sub_samples
-            ))),
+            n_folds=min(3, len(set(s["patient_id"] for s in sub_samples))),
             num_classes=2,
             epochs=demo_epochs,
             hidden_dim=args.hidden_dim,
@@ -633,9 +637,7 @@ def _run_ablations_demo(args: argparse.Namespace) -> None:
     print("\n--- Binary (SleepWakeTask) ---")
     avg_b = participant_cv(
         binary_samples,
-        n_folds=min(3, len(set(
-            s["patient_id"] for s in binary_samples
-        ))),
+        n_folds=min(3, len(set(s["patient_id"] for s in binary_samples))),
         num_classes=2,
         epochs=demo_epochs,
         hidden_dim=args.hidden_dim,
@@ -646,9 +648,7 @@ def _run_ablations_demo(args: argparse.Namespace) -> None:
     print("\n--- 5-class (SleepStageTask) ---")
     avg_s = participant_cv(
         stage_samples,
-        n_folds=min(3, len(set(
-            s["patient_id"] for s in stage_samples
-        ))),
+        n_folds=min(3, len(set(s["patient_id"] for s in stage_samples))),
         num_classes=5,
         epochs=demo_epochs,
         hidden_dim=args.hidden_dim,
@@ -690,7 +690,9 @@ def _generate_demo_subset(
                 "TIMESTAMP": np.arange(rows) / 64.0,
                 "BVP": rng.randn(rows) * 50,
                 "IBI": np.clip(
-                    rng.rand(rows) * 0.2 + 0.7, 0, 2,
+                    rng.rand(rows) * 0.2 + 0.7,
+                    0,
+                    2,
                 ),
                 "EDA": rng.rand(rows) * 5 + 0.1,
                 "TEMP": rng.rand(rows) * 4 + 33,
@@ -706,10 +708,12 @@ def _generate_demo_subset(
             data["Sleep_Stage"] = stage_col
 
             csv_path = os.path.join(
-                tmpdir, f"{pid}_whole_df.csv",
+                tmpdir,
+                f"{pid}_whole_df.csv",
             )
             pd.DataFrame(data).to_csv(
-                csv_path, index=False,
+                csv_path,
+                index=False,
             )
 
             evt = SimpleNamespace(file_64hz=csv_path)
@@ -733,29 +737,33 @@ def main() -> None:
         description="DREAMT LSTM ablation study",
     )
     parser.add_argument(
-        "--root", default=None,
-        help=(
-            "Path to DREAMT dataset. "
-            f"Default: {DEFAULT_ROOT}"
-        ),
+        "--root",
+        default=None,
+        help=("Path to DREAMT dataset. " f"Default: {DEFAULT_ROOT}"),
     )
     parser.add_argument(
-        "--demo", action="store_true",
+        "--demo",
+        action="store_true",
         help=(
             "Run with synthetic data instead of real "
             "DREAMT (no dataset download required)."
         ),
     )
     parser.add_argument(
-        "--epochs", type=int, default=30,
+        "--epochs",
+        type=int,
+        default=30,
         help="Training epochs per fold",
     )
     parser.add_argument(
-        "--hidden_dim", type=int, default=64,
+        "--hidden_dim",
+        type=int,
+        default=64,
         help="LSTM hidden dimension",
     )
     parser.add_argument(
-        "--device", default="cpu",
+        "--device",
+        default="cpu",
         help="Device (cpu or cuda)",
     )
     args = parser.parse_args()
