@@ -1,0 +1,99 @@
+Pull Request Quality & Completeness (50 pts total)
+1. Core Implementation (20 pts)
+For Dataset Contributions (must include associated Task):
+Code Implementation (12 pts)
+Properly inherits from BaseDataset (2 pts)
+Implements all required data loading and parsing methods (5 pts)
+I.e has a configs/dataset.yaml file that define how BaseDataset can load and use the data.
+Follows established patterns (MIMIC4 for EHR, CovidCXR for images) (3 pts)
+Includes proper error handling and validation (2 pts)
+Documentation (5 pts)
+Comprehensive docstrings following Google style (2 pts)
+Proper type hints for all methods (2 pts)
+Clear high-level description and usage examples (1 pt)
+Code Quality (3 pts)
+Follows PEP8 style with 88 character line length (1 pt)
+Uses snake_case for variables/functions, PascalCase for classes (1 pt)
+Well-structured, readable code (1 pt)
+For Model Contributions:
+Code Implementation (12 pts)
+Properly inherits from BaseModel (2 pts)
+Implements required abstract methods correctly (5 pts)
+Clear forward pass implementation (3 pts)
+Proper initialization and configuration methods (2 pts)
+Documentation (5 pts)
+Comprehensive docstrings following Google style (2 pts)
+Proper type hints for all methods (2 pts)
+Clear high-level description and usage examples (1 pt)
+Code Quality (3 pts)
+Follows PEP8 style with 88 character line length (1 pt)
+Uses snake_case for variables/functions, PascalCase for classes (1 pt)
+Well-structured, readable code (1 pt)
+For Task Contributions (standalone):
+Code Implementation (12 pts)
+Properly inherits from base task class (2 pts)
+Clear input/output definitions (5 pts)
+Proper feature extraction and label generation (3 pts)
+Follows established patterns (2 pts)
+Documentation (5 pts)
+Comprehensive docstrings following Google style (2 pts)
+Proper type hints for all methods (2 pts)
+Clear high-level description and usage examples (1 pt)
+Code Quality (3 pts)
+Follows PEP8 style with 88 character line length (1 pt)
+Uses snake_case for variables/functions, PascalCase for classes (1 pt)
+Well-structured, readable code (1 pt)
+2. Required File Updates (12 pts)
+Core implementation file(s) (3 pts)
+For datasets: pyhealth/datasets/new_dataset.py + pyhealth/tasks/new_task.py
+For models: pyhealth/models/new_model.py
+For standalone tasks: pyhealth/tasks/new_task.py
+Documentation RST file(s) (3 pts)
+For datasets: both docs/api/datasets/pyhealth.datasets.new_dataset.rst AND docs/api/tasks/pyhealth.tasks.new_task.rst
+For models: docs/api/models/pyhealth.models.new_model.rst
+For standalone tasks: docs/api/tasks/pyhealth.tasks.new_task.rst
+Please make sure to update the index .rst files too i.e pyhealth/docs/api/datasets.rst
+Index file updates (2 pts)
+Added to appropriate docs/api/ table of contents file(s)
+Ablation/example script (1 pt)
+examples/{dataset}_{task_name}_{model}.py with ablation study or example usage
+Test case file(s) (3 pts)
+For datasets: tests for both dataset AND task
+For models: model tests
+For standalone tasks: task tests using an existing dataset
+Must use synthetic/pseudo data (NOT demo datasets)
+Tests should complete in milliseconds
+2-5 patients maximum for dataset tests
+Minimal synthetic tensors for model tests
+3. Test Cases (11 pts)
+Fast and Performant Tests (5 pts)
+Uses small synthetic/pseudo data (NOT real datasets like MIMIC demo) (2 pts)
+Tests complete quickly (milliseconds per test, seconds for entire suite) (2 pts)
+Uses temporary directories and proper cleanup (1 pt)
+Comprehensive Coverage (6 pts)
+For Datasets: Tests data loading, patient parsing, event parsing, data integrity, AND task functionality (6 pts)
+For Models: Tests instantiation, forward pass, output shapes, gradient computation (6 pts)
+For Tasks: Tests sample processing, label generation, feature extraction, edge cases (6 pts)
+4. Ablation Study / Example Usage (5 pts)
+Demonstrated in examples/{dataset}_{task_name}_{model}.py
+For Model Contributions:
+Test model with varying hyperparameters (learning rate, hidden dimensions, dropout, etc.) on an existing PyHealth dataset (2 pts)
+Show performance comparison across different configurations (2 pts)
+Include clear documentation of experimental setup and findings (1 pt)
+For Dataset/Task Contributions:
+Test with varying dataset features or task configurations (e.g., different prediction windows, feature sets, label definitions) (2 pts)
+Show how feature variations affect model performance using an existing PyHealth model (2 pts)
+Include clear documentation of experimental setup and findings (1 pt)
+Requirements:
+Must be runnable with synthetic/demo data
+Include clear comments explaining the ablation study
+Document results in docstring or accompanying markdown
+5. Pull Request Formatting (7 pts)
+PR Description includes:
+Contributor name and NetID/email (1.5 pts)
+Type of contribution (dataset+task/model/task) (1 pt)
+Link to original paper (required for reproducibility contributions) (1 pt)
+High-level description of implementation (1.5 pts)
+File guide listing which files to review (1 pt)
+Follows example PR format from contribution guide (1 pt)
+If your PR has nothing to do with your paper replication, we will deduct 5 points here. 
