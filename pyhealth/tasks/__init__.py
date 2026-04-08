@@ -75,6 +75,7 @@ from .sleep_staging import (
     sleep_staging_shhs_fn,
     sleep_staging_sleepedf_fn,
 )
+from .sleep_staging_dreamt import SleepStagingDREAMT
 from .sleep_staging_v2 import SleepStagingSleepEDF
 from .temple_university_EEG_tasks import (
     EEGEventsTUEV,
@@ -85,4 +86,3 @@ from .variant_classification import (
     VariantClassificationClinVar,
 )
 from .patient_linkage_mimic3 import PatientLinkageMIMIC3Task
-from .sleep_wake_task import SleepWakeTask, SleepStageTask
