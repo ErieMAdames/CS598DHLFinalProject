@@ -1,3 +1,185 @@
+NOTE: For all Google Forms, please use your Illinois emails and also make sure to validate that you’ve linked your Illinois account with the Cloud Dashboard.
+If you can’t login to Google with your Illinois email, please see: “ Illinois Cloud Dashboard for the university where I needed to enable the Google Apps linkage. Once I did that, I was able to log in using my Illinois email on the Google login page.”
+
+Overview
+Team Formation and Paper Selection (3 pts)  (Due Mar. 1)
+Consent Form (2 pts)
+Project Proposal (20 pt total) (Due Mar. 15)
+Proposal PDF  (15 pt)
+Generative AI Assistant Google Form (5 pt)
+Final Project (75 + 10 EC pts total) (Due April 22)
+PyHealth Pull Request (50 + 10 EC pts total): 
+Gradescope submission (1 PR link per group)
+Google Form for Final Project (15 pt)
+Video Presentation (10 pt) 
+(Gradescope)
+
+Overview
+Hey everyone! For the final project, with the help of an AI assistant, your team will need to reproduce the results for a healthcare research paper from a predetermined list below. Since we recognize that generative models (i.e ChatGPT, Claude, Gemini) are becoming increasingly adopted in workflows, we are asking each of you to submit 2 Google forms recording your use of generative models in the reproducibility process. We want to understand how people are using these tools, whether these LLMs are being used properly, and more importantly, are they helpful in an educational or project setting. 
+
+Gradescope Link: https://www.gradescope.com/, code: 7KB7D2
+
+The entire project consists of 100 and will account for 50% of your class grade. We recognize how challenging it can be to reproduce a paper in its entirety. We grade pretty leniently and are reasonable about what we consider as complete. The general point breakdown is as follows:
+
+Group Formation and Paper Selection with NetIDs (3 pt) 
+Consent Form for Class-Wide Generative AI Study (2 pt)
+Responding Yes or No to the Consent form with PDF submission
+Project Proposal (20 pt)
+Proposal PDF (15 pt)
+Generative AI Usage Form for Proposal (5 pt)
+PyHealth Replication (75 + 10 EC pt) 
+PyHealth Pull Request (50 + 10 EC pt)
+Video Presentation (10 pt)
+Google Form for Final Project (15 pt) 
+
+A major component is the PyHealth pull request. Here, you will attempt to replicate some part of the pipeline you read in the paper. We note that it’s often impossible to fully replicate a work in its entirety given missing data, missing code, etc. Thus, much of the points are given on your best faith-attempt with good programming practices (i.e documentation, test cases, etc.). If you need support with your PyHealth pull requests, please see https://pyhealth.readthedocs.io/en/latest/.  
+
+Compute Resources: COLAB PRO free for students
+Team Formation and Paper Selection (3 pts)
+Deadline: Mar 1, 2026 11:59 PM
+Please choose a paper to reproduce with the help of a large language model (LLM).
+The paper pool and signup sheet can be found here: 
+Sp26_DL4H_Team_Paper_Signup (USE UIUC EMAIL)
+Please do not request access to the doc. You already have access through your UIUC email.
+Please respect other people’s selections (don’t delete them). We can see changes through the history logs. If you do so inappropriately, we will remove yours and will reprimand you accordingly.
+Max 3 People Per Team
+Max 4 Teams Per Paper
+YOU HAVE TO USE YOUR UIUC EMAIL
+0 pts otherwise
+Make sure you submit on Gradescope too.
+Once past the deadline, these groups are final. No additions, no removals, etc.
+Consent Form (2 pts)
+We are also using this LLM-assisted course project for a research study on the utility of LLMs in an educational, medical, and computational setting. Thus, you are invited to participate in a study exploring human collaboration with generative AI models (e.g., ChatGPT, Claude, Gemini) for medical AI research. For that to happen, we need a direct acknowledgment of consent. Please note that no personal information will be used, only the prompts, generated code, and feedback will be used in the final study.
+The consent form will be submitted on Gradescope.
+Every individual must submit a consent form.
+
+Benefits of Consenting:
+Contribute to advancing human-AI collaboration research.
+Potential involvement in future academic publications based on project contributions.
+Voluntary Participation
+Participation in the study is voluntary and will not impact your grade. All data will be anonymized. Please select whether you agree/disagree to be involved in the form on Gradescope for 2 points of completion credit.
+
+Project Proposal (20 pt total)
+Deadline:  March 15, 2026 11:59 PM
+
+Only 1 submission per group is required.
+
+The project proposal consists of two portions, a project proposal, and a Google form, structuring your use of LLMs to understand the paper. Please use the Google Form as a guide for how to use the LLM to help write the proposal and determine if the paper you’ve selected is properly reproducible for your team. The goal here is to make sure you’ve read the paper and made sure it’s a feasible/suitable project for the final PyHealth contribution.
+
+For the project proposal, you and with the help of an LLM assistant will draft a project proposal for the reproduction of your chosen reproduction of an AI healthcare paper.
+For those not already using LLMs, the following (linked) are free to use:
+Claude
+Gemini 
+GPT
+Please keep track of:
+The LLM you used
+The prompts you used for understanding and summarizing the algorithms in the paper. Please keep the chat saved.
+Your insights and analysis on making prompts more effective.
+Please don’t forget to fill out the Generative AI Assistant Google Form: https://docs.google.com/forms/d/e/1FAIpQLSc9mSQRhsHmQIwxKqk5UrNJDkXeiF7lxry6RXDGYe6V4YAD7Q/viewform?usp=header
+This form contains a list and step-by-step process that we want you to follow while using generative tools to accelerate your audit of the reproducibility of a research paper and help you write your proposal.
+Please make sure to fill this out for credit. We advise you to use it along the way, as it can be tedious to submit all at once.
+Everyone needs to submit this form.
+For groups, you can just copy and paste the same prompts and responses.
+Please construct a 2-page Proposal PDF write-up + unlimited references that you submit to Gradescope.
+We recommend using an AAAI latex template (Overleaf Pro is free to use with your Illinois email): https://www.overleaf.com/latex/templates/aaai-authorkit25-anonymoussubmission/qxnjxxbvrjqr 
+You can use the LLM to help you draft the proposal. But, please do not only copy and paste.
+References can just be the paper you’ve picked itself.
+Compute Limits: We recommend the usage of free Google Colab 
+Colab has a T4 GPU with 16 GB of VRAM with 1 hr limit.
+This amount is typically enough for non-LLM research.
+Conversion of notebooks to a GitHub repo is straightforward:
+File -> save a copy in GitHub
+TAs will take into account computation limitations, as long as you mention them.
+Colab pro is free for students now too :D
+Please verify that you have access to the data at this stage.
+
+
+The form questions that will be asked are colored purple and underlined. 
+
+You do not need to include your responses to the questions in purple in the proposal pdf. This means you do not need to submit your prompts in the PDF document. These responses will be submitted to the Google Form provided.
+Proposal PDF  (15 pt) 
+Please follow the exact rubric and format below for your proposal report:
+Introduction (3)
+Problem Statement (2)
+What is the problem statement of the paper you are proposing to reproduce?
+What was the initial prompt that you used? What was the initial output of the LLM? Validate the LLM response. How correct, relevant, and helpful was the LLM? How many prompts did you use? If the initial prompt didn’t work, what was wrong with it?
+Citation to the original paper (1) 
+Please cite it properly. Eg. Use the LaTeX template, which has built-in citations support for BibTeX.
+Methodology (6)
+Specific approach (2)
+What was the specific approach they took to solve the problem? Please include the models, techniques, and evaluation metrics used. How will you implement this model in PyHealth?
+What was the initial prompt that you used? What was the initial output of the LLM? Validate the LLM response. How correct, relevant, and helpful was the LLM? How many prompts did you use? If the initial prompt didn’t work, what was wrong with it?
+Novelty/ Relevance / Hypotheses to be tested (2)
+What exactly is the novelty or relevance of their paper? Why is their proposed method better than baselines? What hypothesis do they make?
+What was the initial prompt that you used? What was the initial output of the LLM? Validate the LLM response. How correct, relevant, and helpful was the LLM? How many prompts did you use? If the initial prompt didn’t work, what was wrong with it?
+Ablations/extensions planned (2)
+What do you think could improve their method? Is their hypothesis legitimate? 
+Data Access and Implementation Details (5)
+Description of how you will have access to the data and potentially the model (2)
+What is the dataset they use and do they use a public codebase?
+What was the initial prompt that you used? What was the initial output of the LLM? Validate the LLM response. How correct, relevant, and helpful was the LLM? How many prompts did you use? If the initial prompt didn’t work, what was wrong with it?
+How will you implement this dataset in PyHealth? (2)
+Statement of whether you will use the existing code or not (1)
+The project proposal is within 2 page limit (1)
+Unlimited References / appendix
+Additional comments or insights on using LLM prompts? (How did you tweak the prompt to be more effective /useful for you?)
+
+For this component, grading will be done based on completion. However, please be thoughtful, if it’s unreasonable, then we will deduct points.
+Generative AI Assistant Google Form (5 pt)
+The overall Google Form is graded for completion. But, please take it seriously as an exercise. We can compare your report to the LLM responses that you submit and validate. If we find that you just copied and pasted LLM responses, we will deduct points. You are to use LLMs to aid you in your work, not just copy.
+
+
+Final Project (75 pts total)
+Submission Deadline: April 22, 2026 11:59 PM
+
+You will submit a PyHealth contribution, video, and Google Form as your final project.
+There is no report.
+You can just pick one of the options below.
+We want the project to focus on reproducibility in addition to ablations/extensions (5 points) to encourage your understanding of the paper.
+Please note that extensions/ ablations should actually be novel and implementable, not hypothetical. 
+I.e. if the ablations are already in the paper, no points will be given.
+Please add all group members to the Gradescope submission to prevent misattributed/missing scores.
+For those that show exceptional effort but still miss full marks, we will offer a proper regrades.
+There will be a gradescope submission to put your PR link as well.
+
+The final project is just the PyHealth Contribution + Google Form + Video Presentation.
+PyHealth Contribution Grading Rubric
+Total Points: 50 pts + 10 pts Extra Credit
+Exemplars here: https://pyhealth.readthedocs.io/en/latest/how_to_contribute.html 
+You can also submit a PR early to PyHealth and if it gets accepted. That means, you will get full credit here guaranteed.
+
+Submission Requirements
+One PR per group to PyHealth GitHub
+Target: main branch
+Enable: "Allow edits by maintainers"
+Rebase with remote main before creating PR
+Include PR link in Gradescope submission
+Must include examples/{dataset}_{task_name}_{model}.py
+Must include link to original paper in PR description
+
+Types of Valid Contributions
+Option 1: Dataset + Task (50 pts possible)
+Dataset implementation + associated task
+Comprehensive tests for both
+Ablation study in examples/{dataset}_{task_name}_{model}.py showing task/feature variations
+Examples:
+https://github.com/sunlabuiuc/PyHealth/pull/392/changes ChestXray14
+https://github.com/sunlabuiuc/PyHealth/pull/625/changes CosmicDataset
+Option 2: Model (50 pts possible)
+Model implementation
+Comprehensive tests
+Ablation study in examples/{dataset}_{task_name}_{model}.py with hyperparameter variations or other ideas.
+Example: https://github.com/sunlabuiuc/PyHealth/pull/781/changes TFM-Tokenizer
+Option 3: Standalone Task (50 pts possible)
+Task for existing supported PyHealth dataset
+Comprehensive tests 
+Ablation study in examples/{dataset}_{task_name}_{model}.py showing task configurations
+Option 4: Full Pipeline (60 pts = 50 base + 10 EC)
+Dataset + Task + Model (all included in your PR)
+Model should be novel within the paper and PyHealth*
+Comprehensive documentation and testing
+Full pipeline in examples/{dataset}_{task_name}_{model}.py
+
 Pull Request Quality & Completeness (50 pts total)
 1. Core Implementation (20 pts)
 For Dataset Contributions (must include associated Task):
@@ -97,3 +279,50 @@ High-level description of implementation (1.5 pts)
 File guide listing which files to review (1 pt)
 Follows example PR format from contribution guide (1 pt)
 If your PR has nothing to do with your paper replication, we will deduct 5 points here. 
+
+Extra Credit (10 pts)
+Full Pipeline Replication (10 pts extra credit)
+Complete end-to-end implementation including:
+Dataset + Task + Model (all novel contributions)
+All components properly tested and documented
+Working example in examples/my_replication.py demonstrating full pipeline
+Comprehensive ablation study across the pipeline
+Pipeline runs successfully: data loading → task processing → model training → evaluation
+Reproducible with synthetic/demo data
+
+Common Deductions
+Dataset without task: -15 pts
+Missing ablation study/example: -5 pts
+Missing paper link: -1 pt
+Real datasets in tests: -5 pts
+Incomplete documentation: -3 to -5 pts
+Slow tests (>1 sec): -3 pts
+Missing file updates: -2 to -3 pts each
+Poor code quality: -2 to -4 pts
+
+Reference Examples
+Please see the examples in https://pyhealth.readthedocs.io/en/latest/how_to_contribute.html 
+
+Google Form for Final Project (15 pt)
+The overall Google Form is graded for completion. But, please take it seriously as an exercise. 
+https://docs.google.com/forms/d/e/1FAIpQLScFJHv7iaMwaa6-tIDGi4SVwAP1KbGLmyB_loUoDSTjE7ObzQ/viewform?usp=header 
+Video Presentation (10 pt)
+Walkthrough of your project. Please make slides. Include a public link to your project video (https://mediaspace.illinois.edu/ / YouTube / OneDrive / GDrive) of your implementation in PyHealth/ your explored.
+
+We expect a well-timed, well-presented presentation. You should clearly explain what the original paper is about (what the general problem is, what the specific approach taken was, and what the results claimed were), what you encountered when you attempted to reproduce the results, and what extensions/ablations you made. 
+
+The presentation should be 4-7 mins (2)
+You can use Zoom to record your presentation
+We will not watch after 7 mins. 
+So do not ask for points that were discussed after the 7th minute.
+
+Explain the general problem clearly (2)
+Explain the specific approach taken in the paper clearly (2)
+Explain reproduction attempts clearly (2)
+Show your results
+Compare with the results in paper
+Briefly explain (any one of the following according to your case)
+Why do your results match with the paper results?
+Why are your results worse/better than the ones in paper?
+Explain the extensions/ablations you made (2)
+
