@@ -1,7 +1,13 @@
 """Tests for SleepStagingDREAMT task.
 
-All tests use in-memory fake patients with small temporary CSV files.
-No real DREAMT data is required. Tests complete in milliseconds.
+By default, all tests use in-memory fake patients with small temporary CSV
+files — no real DREAMT data is required, and tests complete in milliseconds.
+
+To also run validation tests on the real DREAMT dataset::
+
+    pytest tests/test_sleep_staging_dreamt.py --real-data -s
+
+The ``--real-data`` tests expect CSV files in ``data/dreamt/data_64Hz/``.
 """
 
 import os
@@ -438,3 +444,101 @@ class TestEdgeCases:
         task = SleepStagingDREAMT()
         samples = task(patient)
         assert samples == []
+
+
+# -----------------------------------------------------------
+# Tests — Real DREAMT data (requires --real-data flag)
+# -----------------------------------------------------------
+
+
+@pytest.mark.real_data
+class TestRealData:
+    """Run SleepStagingDREAMT on the full DREAMT dataset.
+
+    Skipped unless ``pytest --real-data`` is passed.
+    Use ``-s`` to see the printed summary table.
+    """
+
+    def _get_csv_files(self):
+        from tests.conftest import DATA_ROOT
+
+        data_dir = os.path.abspath(DATA_ROOT)
+        if not os.path.isdir(data_dir):
+            pytest.skip(f"Data directory not found: {data_dir}")
+        import glob
+
+        files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
+        if not files:
+            pytest.skip(f"No CSV files in {data_dir}")
+        return files
+
+    def test_all_patients_produce_samples(self):
+        """Every patient CSV produces >0 epochs with correct shape."""
+        files = self._get_csv_files()
+        task = SleepStagingDREAMT(n_classes=5)
+
+        total_epochs = 0
+        failed = []
+
+        print(f"\n{'Patient':<10} {'Epochs':>7} {'W':>5} {'N1':>5}"
+              f" {'N2':>5} {'N3':>5} {'R':>5}")
+        print("-" * 50)
+
+        from tqdm import tqdm
+
+        for csv_path in tqdm(files, desc="Processing patients", unit="patient"):
+            pid = os.path.basename(csv_path).split("_")[0]
+            patient = _make_patient(csv_path, patient_id=pid)
+            samples = task(patient)
+
+            if not samples:
+                failed.append(pid)
+                tqdm.write(f"{pid:<10} {'EMPTY':>7}")
+                continue
+
+            sig = samples[0]["signal"]
+            assert sig.shape == (8, 1920), (
+                f"{pid}: expected (8, 1920), got {sig.shape}"
+            )
+            assert sig.dtype == np.float32
+
+            labels = [s["label"] for s in samples]
+            assert all(0 <= lbl <= 4 for lbl in labels)
+
+            counts = {i: labels.count(i) for i in range(5)}
+            total_epochs += len(samples)
+
+            tqdm.write(
+                f"{pid:<10} {len(samples):>7}"
+                f" {counts[0]:>5} {counts[1]:>5}"
+                f" {counts[2]:>5} {counts[3]:>5}"
+                f" {counts[4]:>5}"
+            )
+
+        print("-" * 50)
+        print(f"{'TOTAL':<10} {total_epochs:>7}")
+        print(f"Patients processed: {len(files)}")
+        if failed:
+            print(f"Empty patients: {failed}")
+
+        assert total_epochs > 0, "No epochs produced from any patient"
+
+    def test_label_distribution_has_all_classes(self):
+        """All 5 sleep stages appear across the full dataset."""
+        files = self._get_csv_files()
+        task = SleepStagingDREAMT(n_classes=5)
+
+        from tqdm import tqdm
+
+        all_labels = set()
+        for csv_path in tqdm(files, desc="Checking label coverage", unit="patient"):
+            pid = os.path.basename(csv_path).split("_")[0]
+            patient = _make_patient(csv_path, patient_id=pid)
+            samples = task(patient)
+            all_labels.update(s["label"] for s in samples)
+            if all_labels == {0, 1, 2, 3, 4}:
+                break
+
+        assert all_labels == {0, 1, 2, 3, 4}, (
+            f"Missing labels: {set(range(5)) - all_labels}"
+        )

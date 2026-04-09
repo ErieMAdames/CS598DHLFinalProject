@@ -1,16 +1,20 @@
-"""DREAMT Sleep/Wake LSTM — Ablation Study.
+"""DREAMT Sleep Staging LSTM — Ablation Study.
 
 This script runs two ablation experiments on the DREAMT
-sleep/wake detection and sleep staging tasks:
+sleep staging task using ``SleepStagingDREAMT``:
 
 1. **Signal-subset ablation** (binary wake/sleep):
    ACC-only vs BVP/HRV-only vs EDA+TEMP-only vs ALL signals.
 
 2. **Label-granularity ablation** (ALL signals):
-   binary (wake/sleep) vs 5-class (W/R/N1/N2/N3).
+   2-class (wake/sleep) vs 5-class (W/N1/N2/N3/R).
 
 A single-layer unidirectional LSTM is trained with 5-fold
 participant-level cross-validation (no subject leakage).
+
+Each 30-second epoch's raw multi-channel signal is reduced to
+per-channel statistics (mean, std, min, max) to form a compact
+feature vector suitable for the LSTM.
 
 Usage — full DREAMT run::
 
@@ -30,46 +34,7 @@ Results / Findings
 Results are non-meaningful and serve only to verify that the
 full pipeline (epoching -> feature extraction -> LSTM training
 -> evaluation) runs end-to-end without error.  Expected output
-is near-random performance (F1 ≈ 0.2-0.5, Kappa ≈ 0).
-
-**Full DREAMT run** (representative, 5-fold CV, 30 epochs):
-
-===========================================NOT REAL DATA, JUST A PLACEHOLDER===========================================
-
-Ablation 1 — Signal subsets (binary wake/sleep):
-
-==========  =========  =========  =========  =========
-Subset      F1 (wake)  AUROC      Accuracy   Kappa
-==========  =========  =========  =========  =========
-ACC         0.47±0.05  0.60±0.04  0.68±0.03  0.13±0.05
-BVP_HRV     0.43±0.06  0.57±0.05  0.65±0.04  0.09±0.04
-EDA_TEMP    0.40±0.07  0.55±0.06  0.64±0.05  0.06±0.05
-ALL         0.52±0.04  0.64±0.03  0.72±0.03  0.18±0.04
-==========  =========  =========  =========  =========
-
-Ablation 2 — Label granularity (ALL signals):
-
-===========  ========  =========  =========  =========
-Granularity  F1 (avg)  AUROC      Accuracy   Kappa
-===========  ========  =========  =========  =========
-Binary       0.52±0.04 0.64±0.03  0.72±0.03  0.18±0.04
-5-class      0.28±0.05 0.61±0.04  0.42±0.04  0.14±0.05
-===========  ========  =========  =========  =========
-
-===========================================NOT REAL DATA, JUST A PLACEHOLDER===========================================
-
-Key observations:
-
-- **ALL signals** consistently outperforms individual subsets,
-  confirming complementary information across modalities.
-- **ACC** alone is the strongest single subset, consistent
-  with prior findings that actigraphy is the primary cue for
-  wrist-based sleep/wake discrimination.
-- **5-class** staging is substantially harder than binary,
-  with most confusion between N1/N2/REM stages—mirroring
-  known limitations of wrist-only sensing.
-- Results are below polysomnography baselines, as expected
-  for consumer-grade wearable data.
+is near-random performance (F1 ~ 0.2-0.5, Kappa ~ 0).
 
 Reference:
     Wang et al. "Addressing wearable sleep tracking inequity:
@@ -94,11 +59,48 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
-from pyhealth.tasks import SleepStageTask, SleepWakeTask
-from pyhealth.tasks.sleep_wake_task import EPOCH_LEN
+from pyhealth.tasks.sleep_staging_dreamt import (
+    ALL_SIGNAL_COLUMNS,
+    SleepStagingDREAMT,
+)
 
 warnings.filterwarnings("ignore")
+
+EPOCH_LEN: int = 30 * 64  # 1920 samples per 30-s epoch at 64 Hz
+
+SIGNAL_SUBSETS: Dict[str, List[str]] = {
+    "ACC": ["ACC_X", "ACC_Y", "ACC_Z"],
+    "BVP_HRV": ["BVP", "HR", "IBI"],
+    "EDA_TEMP": ["EDA", "TEMP"],
+    "ALL": list(ALL_SIGNAL_COLUMNS),
+}
+
+
+def _epoch_features(signal: np.ndarray) -> np.ndarray:
+    """Convert a raw epoch signal to a compact feature vector.
+
+    Computes mean, std, min, and max per channel.
+
+    Args:
+        signal: Array of shape ``(n_channels, epoch_len)``.
+
+    Returns:
+        1-D feature vector of length ``4 * n_channels``.
+    """
+    if isinstance(signal, torch.Tensor):
+        signal = signal.numpy()
+    feats: List[float] = []
+    for ch in range(signal.shape[0]):
+        s = signal[ch].astype(np.float64)
+        feats.extend([
+            float(np.mean(s)),
+            float(np.std(s)),
+            float(np.min(s)),
+            float(np.max(s)),
+        ])
+    return np.array(feats, dtype=np.float32)
 
 
 # -----------------------------------------------------------
@@ -161,17 +163,21 @@ class SequenceDataset(Dataset):
         for pid in sorted(patient_map):
             epochs = sorted(
                 patient_map[pid],
-                key=lambda e: e["epoch_idx"],
+                key=lambda e: e["epoch_index"],
             )
             signals = np.stack(
-                [e["signal"] for e in epochs],
+                [_epoch_features(e["signal"]) for e in epochs],
                 axis=0,
             )
             labels = np.array(
                 [e["label"] for e in epochs],
             )
-            self.sequences.append(torch.tensor(signals, dtype=torch.float32))
-            self.labels_list.append(torch.tensor(labels, dtype=torch.long))
+            self.sequences.append(
+                torch.tensor(signals, dtype=torch.float32)
+            )
+            self.labels_list.append(
+                torch.tensor(labels, dtype=torch.long)
+            )
 
     def __len__(self) -> int:
         return len(self.sequences)
@@ -231,7 +237,8 @@ def train_and_evaluate(
     if not train_samples or not test_samples:
         return {}
 
-    feat_dim = train_samples[0]["signal"].shape[0]
+    n_channels = train_samples[0]["signal"].shape[0]
+    feat_dim = 4 * n_channels
 
     train_ds = SequenceDataset(train_samples)
     test_ds = SequenceDataset(test_samples)
@@ -258,7 +265,7 @@ def train_and_evaluate(
     criterion = nn.CrossEntropyLoss(ignore_index=-1)
 
     model.train()
-    for _ in range(epochs):
+    for _ in tqdm(range(epochs), desc="    Training", unit="epoch", leave=False):
         for seqs, labels, masks in train_loader:
             seqs = seqs.to(device)
             labels = labels.to(device)
@@ -286,9 +293,13 @@ def train_and_evaluate(
                 all_preds.extend(preds[i][valid].numpy().tolist())
                 all_labels.extend(labels[i][valid].numpy().tolist())
                 if num_classes == 2:
-                    all_probs.extend(probs[i][valid][:, 1].numpy().tolist())
+                    all_probs.extend(
+                        probs[i][valid][:, 1].numpy().tolist()
+                    )
                 else:
-                    all_probs.extend(probs[i][valid].numpy().tolist())
+                    all_probs.extend(
+                        probs[i][valid].numpy().tolist()
+                    )
 
     y_true = np.array(all_labels)
     y_pred = np.array(all_preds)
@@ -338,17 +349,25 @@ def participant_cv(
     fold_size = max(1, len(patient_ids) // n_folds)
     fold_results: List[Dict[str, float]] = []
 
-    for fold in range(n_folds):
+    for fold in tqdm(range(n_folds), desc="  CV folds", unit="fold"):
         start = fold * fold_size
-        end = start + fold_size if fold < n_folds - 1 else len(patient_ids)
+        end = (
+            start + fold_size
+            if fold < n_folds - 1
+            else len(patient_ids)
+        )
         test_ids = set(patient_ids[start:end])
         train_ids = set(patient_ids) - test_ids
 
         if not train_ids or not test_ids:
             continue
 
-        train_s = [s for s in samples if s["patient_id"] in train_ids]
-        test_s = [s for s in samples if s["patient_id"] in test_ids]
+        train_s = [
+            s for s in samples if s["patient_id"] in train_ids
+        ]
+        test_s = [
+            s for s in samples if s["patient_id"] in test_ids
+        ]
 
         res = train_and_evaluate(
             train_s,
@@ -358,7 +377,7 @@ def participant_cv(
         )
         if res:
             fold_results.append(res)
-            print(
+            tqdm.write(
                 f"  Fold {fold + 1}: "
                 f"F1={res['f1']:.3f}  "
                 f"AUROC={res['auroc']:.3f}  "
@@ -381,64 +400,79 @@ def participant_cv(
 # -----------------------------------------------------------
 
 
-def _generate_demo_samples(
-    n_patients: int = 3,
-    epochs_per_patient: int = 20,
-) -> tuple:
-    """Create synthetic samples for demo mode.
-
-    Generates tiny in-memory CSV files with random signals
-    and realistic stage distributions, then processes them
-    through SleepWakeTask and SleepStageTask.
+def _generate_demo_csv(
+    tmpdir: str,
+    patient_id: str,
+    n_epochs: int,
+    rng: np.random.RandomState,
+) -> str:
+    """Create one synthetic 64 Hz CSV file.
 
     Args:
-        n_patients: Number of synthetic patients.
-        epochs_per_patient: 30-s epochs per patient.
+        tmpdir: Directory to write the CSV.
+        patient_id: Used in the filename.
+        n_epochs: Number of 30-s epochs to generate.
+        rng: Random state for reproducibility.
 
     Returns:
-        Tuple of (binary_samples, stage_samples) where each
-        is a list of sample dicts ready for training.
+        Path to the written CSV file.
     """
     import pandas as pd
 
     stages_pool = ["W", "N1", "N2", "N3", "R"]
-    rng = np.random.RandomState(123)
+    rows = n_epochs * EPOCH_LEN
+    data = {
+        "TIMESTAMP": np.arange(rows) / 64.0,
+        "BVP": rng.randn(rows) * 50,
+        "IBI": np.clip(rng.rand(rows) * 0.2 + 0.7, 0, 2),
+        "EDA": rng.rand(rows) * 5 + 0.1,
+        "TEMP": rng.rand(rows) * 4 + 33,
+        "ACC_X": rng.randn(rows) * 10,
+        "ACC_Y": rng.randn(rows) * 10,
+        "ACC_Z": rng.randn(rows) * 10,
+        "HR": rng.rand(rows) * 30 + 60,
+    }
+    stage_col = []
+    for i in range(n_epochs):
+        st = stages_pool[i % len(stages_pool)]
+        stage_col.extend([st] * EPOCH_LEN)
+    data["Sleep_Stage"] = stage_col
 
-    binary_all: List[Dict[str, Any]] = []
-    stage_all: List[Dict[str, Any]] = []
+    csv_path = os.path.join(tmpdir, f"{patient_id}_whole_df.csv")
+    pd.DataFrame(data).to_csv(csv_path, index=False)
+    return csv_path
+
+
+def _generate_demo_samples(
+    n_classes: int = 2,
+    signal_columns: Optional[List[str]] = None,
+    n_patients: int = 3,
+    epochs_per_patient: int = 20,
+    seed: int = 123,
+) -> List[Dict[str, Any]]:
+    """Create synthetic samples for demo mode.
+
+    Args:
+        n_classes: Number of label classes (2, 3, or 5).
+        signal_columns: Which signal columns to include.
+        n_patients: Number of synthetic patients.
+        epochs_per_patient: 30-s epochs per patient.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        List of sample dicts ready for training.
+    """
+    from types import SimpleNamespace
+
+    rng = np.random.RandomState(seed)
+    all_samples: List[Dict[str, Any]] = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for p in range(n_patients):
             pid = f"DEMO_{p:03d}"
-            rows = epochs_per_patient * EPOCH_LEN
-            data = {
-                "TIMESTAMP": np.arange(rows) / 64.0,
-                "BVP": rng.randn(rows) * 50,
-                "IBI": np.clip(
-                    rng.rand(rows) * 0.2 + 0.7,
-                    0,
-                    2,
-                ),
-                "EDA": rng.rand(rows) * 5 + 0.1,
-                "TEMP": rng.rand(rows) * 4 + 33,
-                "ACC_X": rng.randn(rows) * 10,
-                "ACC_Y": rng.randn(rows) * 10,
-                "ACC_Z": rng.randn(rows) * 10,
-                "HR": rng.rand(rows) * 30 + 60,
-            }
-            stage_col = []
-            for i in range(epochs_per_patient):
-                st = stages_pool[i % len(stages_pool)]
-                stage_col.extend([st] * EPOCH_LEN)
-            data["Sleep_Stage"] = stage_col
-
-            csv_path = os.path.join(
-                tmpdir,
-                f"{pid}_whole_df.csv",
+            csv_path = _generate_demo_csv(
+                tmpdir, pid, epochs_per_patient, rng,
             )
-            pd.DataFrame(data).to_csv(csv_path, index=False)
-
-            from types import SimpleNamespace
 
             evt = SimpleNamespace(file_64hz=csv_path)
             patient = SimpleNamespace(
@@ -446,18 +480,14 @@ def _generate_demo_samples(
                 get_events=lambda et=None, e=evt: [e],
             )
 
-            task_bin = SleepWakeTask(
-                signal_subset="ALL",
-                artifact_threshold=None,
+            task = SleepStagingDREAMT(
+                n_classes=n_classes,
+                signal_columns=signal_columns,
+                apply_filters=False,
             )
-            task_stg = SleepStageTask(
-                signal_subset="ALL",
-                artifact_threshold=None,
-            )
-            binary_all.extend(task_bin(patient))
-            stage_all.extend(task_stg(patient))
+            all_samples.extend(task(patient))
 
-    return binary_all, stage_all
+    return all_samples
 
 
 # -----------------------------------------------------------
@@ -492,19 +522,13 @@ def _resolve_root(
     )
     for path in candidates:
         if path and os.path.isdir(path):
-            info = os.path.join(
-                path,
-                "participant_info.csv",
-            )
+            info = os.path.join(path, "participant_info.csv")
             if os.path.isfile(info):
                 return path
             for sub in sorted(os.listdir(path)):
                 subpath = os.path.join(path, sub)
                 if os.path.isdir(subpath) and os.path.isfile(
-                    os.path.join(
-                        subpath,
-                        "participant_info.csv",
-                    )
+                    os.path.join(subpath, "participant_info.csv")
                 ):
                     return subpath
     print(
@@ -536,15 +560,18 @@ def _run_ablations_real(args: argparse.Namespace) -> None:
     dataset = DREAMTDataset(root=root)
 
     print("\n" + "=" * 60)
-    print("ABLATION 1: Signal Subset (binary wake/sleep)")
+    print("ABLATION 1: Signal Subset (2-class wake/sleep)")
     print("=" * 60)
 
-    for subset in ["ACC", "BVP_HRV", "EDA_TEMP", "ALL"]:
-        print(f"\n--- Signal subset: {subset} ---")
-        task = SleepWakeTask(signal_subset=subset)
+    for subset_name, columns in tqdm(SIGNAL_SUBSETS.items(), desc="Signal subsets", unit="subset"):
+        tqdm.write(f"\n--- Signal subset: {subset_name} ---")
+        task = SleepStagingDREAMT(
+            n_classes=2,
+            signal_columns=columns,
+        )
         sample_ds = dataset.set_task(task)
-        samples = [sample_ds[i] for i in range(len(sample_ds))]
-        print(f"  Total samples: {len(samples)}")
+        samples = [sample_ds[i] for i in tqdm(range(len(sample_ds)), desc="  Loading samples", leave=False)]
+        tqdm.write(f"  Total samples: {len(samples)}")
         avg = participant_cv(
             samples,
             num_classes=2,
@@ -552,183 +579,110 @@ def _run_ablations_real(args: argparse.Namespace) -> None:
             hidden_dim=args.hidden_dim,
             device=args.device,
         )
-        print(f"  Average: {avg}")
+        tqdm.write(f"  Average: {avg}")
 
     print("\n" + "=" * 60)
     print("ABLATION 2: Label Granularity (ALL signals)")
     print("=" * 60)
 
-    print("\n--- Binary (SleepWakeTask) ---")
-    task_b = SleepWakeTask(signal_subset="ALL")
-    sd_b = dataset.set_task(task_b)
-    samps_b = [sd_b[i] for i in range(len(sd_b))]
-    avg_b = participant_cv(
-        samps_b,
+    print("\n--- 2-class (wake vs sleep) ---")
+    task_2 = SleepStagingDREAMT(n_classes=2)
+    sd_2 = dataset.set_task(task_2)
+    samps_2 = [sd_2[i] for i in tqdm(range(len(sd_2)), desc="  Loading samples", leave=False)]
+    avg_2 = participant_cv(
+        samps_2,
         num_classes=2,
         epochs=args.epochs,
         hidden_dim=args.hidden_dim,
         device=args.device,
     )
-    print(f"  Average: {avg_b}")
+    print(f"  Average: {avg_2}")
 
-    print("\n--- 5-class (SleepStageTask) ---")
-    task_s = SleepStageTask(signal_subset="ALL")
-    sd_s = dataset.set_task(task_s)
-    samps_s = [sd_s[i] for i in range(len(sd_s))]
-    avg_s = participant_cv(
-        samps_s,
+    print("\n--- 5-class (W/N1/N2/N3/R) ---")
+    task_5 = SleepStagingDREAMT(n_classes=5)
+    sd_5 = dataset.set_task(task_5)
+    samps_5 = [sd_5[i] for i in tqdm(range(len(sd_5)), desc="  Loading samples", leave=False)]
+    avg_5 = participant_cv(
+        samps_5,
         num_classes=5,
         epochs=args.epochs,
         hidden_dim=args.hidden_dim,
         device=args.device,
     )
-    print(f"  Average: {avg_s}")
+    print(f"  Average: {avg_5}")
 
 
 def _run_ablations_demo(args: argparse.Namespace) -> None:
     """Run ablations on synthetic demo data.
 
-    Generates 3 fake patients (20 epochs each), runs the
-    same ablation loop with 2 training epochs, and prints
-    placeholder metrics to verify the full pipeline works.
-
     Args:
         args: Parsed command-line arguments.
     """
     print("=== DEMO MODE (synthetic data) ===\n")
-    print("Generating 3 synthetic patients " "(20 epochs each) ...")
-
-    binary_samples, stage_samples = _generate_demo_samples(
-        n_patients=3,
-        epochs_per_patient=20,
-    )
-    print(
-        f"  Binary samples: {len(binary_samples)}, "
-        f"Stage samples: {len(stage_samples)}"
-    )
+    print("Generating 3 synthetic patients (20 epochs each) ...")
 
     demo_epochs = min(args.epochs, 2)
 
     print("\n" + "=" * 60)
-    print("ABLATION 1: Signal Subset (binary, demo)")
+    print("ABLATION 1: Signal Subset (2-class, demo)")
     print("=" * 60)
 
-    for subset in ["ACC", "BVP_HRV", "EDA_TEMP", "ALL"]:
-        print(f"\n--- Signal subset: {subset} ---")
-        sub_samples = _generate_demo_subset(
-            subset,
+    for subset_name, columns in tqdm(SIGNAL_SUBSETS.items(), desc="Signal subsets", unit="subset"):
+        tqdm.write(f"\n--- Signal subset: {subset_name} ---")
+        seed = abs(hash(subset_name)) % (2**31)
+        sub_samples = _generate_demo_samples(
+            n_classes=2,
+            signal_columns=columns,
             n_patients=3,
+            seed=seed,
         )
-        print(f"  Total samples: {len(sub_samples)}")
+        tqdm.write(f"  Total samples: {len(sub_samples)}")
+        n_pids = len(set(s["patient_id"] for s in sub_samples))
         avg = participant_cv(
             sub_samples,
-            n_folds=min(3, len(set(s["patient_id"] for s in sub_samples))),
+            n_folds=min(3, n_pids),
             num_classes=2,
             epochs=demo_epochs,
             hidden_dim=args.hidden_dim,
             device=args.device,
         )
-        print(f"  Average: {avg}")
+        tqdm.write(f"  Average: {avg}")
 
     print("\n" + "=" * 60)
     print("ABLATION 2: Label Granularity (demo)")
     print("=" * 60)
 
-    print("\n--- Binary (SleepWakeTask) ---")
-    avg_b = participant_cv(
-        binary_samples,
-        n_folds=min(3, len(set(s["patient_id"] for s in binary_samples))),
+    print("\n--- 2-class (wake vs sleep) ---")
+    samples_2 = _generate_demo_samples(
+        n_classes=2, n_patients=3, seed=123,
+    )
+    n_pids_2 = len(set(s["patient_id"] for s in samples_2))
+    avg_2 = participant_cv(
+        samples_2,
+        n_folds=min(3, n_pids_2),
         num_classes=2,
         epochs=demo_epochs,
         hidden_dim=args.hidden_dim,
         device=args.device,
     )
-    print(f"  Average: {avg_b}")
+    print(f"  Average: {avg_2}")
 
-    print("\n--- 5-class (SleepStageTask) ---")
-    avg_s = participant_cv(
-        stage_samples,
-        n_folds=min(3, len(set(s["patient_id"] for s in stage_samples))),
+    print("\n--- 5-class (W/N1/N2/N3/R) ---")
+    samples_5 = _generate_demo_samples(
+        n_classes=5, n_patients=3, seed=123,
+    )
+    n_pids_5 = len(set(s["patient_id"] for s in samples_5))
+    avg_5 = participant_cv(
+        samples_5,
+        n_folds=min(3, n_pids_5),
         num_classes=5,
         epochs=demo_epochs,
         hidden_dim=args.hidden_dim,
         device=args.device,
     )
-    print(f"  Average: {avg_s}")
+    print(f"  Average: {avg_5}")
 
     print("\nDemo complete.")
-
-
-def _generate_demo_subset(
-    signal_subset: str,
-    n_patients: int = 3,
-    epochs_per_patient: int = 20,
-) -> List[Dict[str, Any]]:
-    """Generate demo samples for a specific signal subset.
-
-    Args:
-        signal_subset: One of ACC, BVP_HRV, EDA_TEMP, ALL.
-        n_patients: Number of synthetic patients.
-        epochs_per_patient: Epochs per patient.
-
-    Returns:
-        List of binary-labeled sample dicts.
-    """
-    import pandas as pd
-    from types import SimpleNamespace
-
-    stages_pool = ["W", "N1", "N2", "N3", "R"]
-    seed = abs(hash(signal_subset)) % (2**31)
-    rng = np.random.RandomState(seed)
-    all_samples: List[Dict[str, Any]] = []
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for p in range(n_patients):
-            pid = f"DEMO_{signal_subset}_{p:03d}"
-            rows = epochs_per_patient * EPOCH_LEN
-            data = {
-                "TIMESTAMP": np.arange(rows) / 64.0,
-                "BVP": rng.randn(rows) * 50,
-                "IBI": np.clip(
-                    rng.rand(rows) * 0.2 + 0.7,
-                    0,
-                    2,
-                ),
-                "EDA": rng.rand(rows) * 5 + 0.1,
-                "TEMP": rng.rand(rows) * 4 + 33,
-                "ACC_X": rng.randn(rows) * 10,
-                "ACC_Y": rng.randn(rows) * 10,
-                "ACC_Z": rng.randn(rows) * 10,
-                "HR": rng.rand(rows) * 30 + 60,
-            }
-            stage_col = []
-            for i in range(epochs_per_patient):
-                st = stages_pool[i % len(stages_pool)]
-                stage_col.extend([st] * EPOCH_LEN)
-            data["Sleep_Stage"] = stage_col
-
-            csv_path = os.path.join(
-                tmpdir,
-                f"{pid}_whole_df.csv",
-            )
-            pd.DataFrame(data).to_csv(
-                csv_path,
-                index=False,
-            )
-
-            evt = SimpleNamespace(file_64hz=csv_path)
-            patient = SimpleNamespace(
-                patient_id=pid,
-                get_events=lambda et=None, e=evt: [e],
-            )
-
-            task = SleepWakeTask(
-                signal_subset=signal_subset,
-                artifact_threshold=None,
-            )
-            all_samples.extend(task(patient))
-
-    return all_samples
 
 
 def main() -> None:
@@ -739,7 +693,10 @@ def main() -> None:
     parser.add_argument(
         "--root",
         default=None,
-        help=("Path to DREAMT dataset. " f"Default: {DEFAULT_ROOT}"),
+        help=(
+            "Path to DREAMT dataset. "
+            f"Default: {DEFAULT_ROOT}"
+        ),
     )
     parser.add_argument(
         "--demo",
